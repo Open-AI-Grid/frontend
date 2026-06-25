@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open AI Grid Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <h1>Open AI Grid</h1>
+    </div>
+    <div style="display:flex;gap:.6rem;align-items:center">
+      <span class="status" id="connectionStatus">Connecting...</span>
+      <button class="btn-sm" id="loginBtn" onclick="showAuth()">Sign In</button>
+      <span id="userBadge" class="mono muted" style="display:none"></span>
+    </div>
+  </header>
+
+  <!-- Auth modal -->
+  <div id="authModal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="authTitle">Sign In</h2>
+      <div id="authError" class="error-msg hidden"></div>
+
+      <div id="authLoginForm">
+        <label>Username</label>
+        <input id="authUsername" type="text" placeholder="your_username">
+        <label>Password</label>
+        <input id="authPassword" type="password" placeholder="••••••••">
+        <button class="btn" onclick="doLogin()">Sign In</button>
+        <p class="mono muted" style="margin-top:.5rem;font-size:.8rem">
+          No account? <a href="#" onclick="switchToRegister()">Register</a>
+        </p>
+      </div>
+
+      <div id="authRegisterForm" class="hidden">
+        <label>Username</label>
+        <input id="regUsername" type="text" placeholder="your_username">
+        <label>Email</label>
+        <input id="regEmail" type="email" placeholder="you@example.com">
+        <label>Password</label>
+        <input id="regPassword" type="password" placeholder="min 8 characters">
+        <button class="btn" onclick="doRegister()">Create Account</button>
+        <p class="mono muted" style="margin-top:.5rem;font-size:.8rem">
+          Have an account? <a href="#" onclick="switchToLogin()">Sign In</a>
+        </p>
+      </div>
+
+      <div id="authMfaForm" class="hidden">
+        <p class="mono muted">Enter the 6-digit code from your authenticator app.</p>
+        <input id="mfaCode" type="text" maxlength="6" placeholder="000000">
+        <button class="btn" onclick="doMfaVerify()">Verify</button>
+      </div>
+
+      <button class="btn-ghost" onclick="closeAuth()" style="margin-top:.5rem">Cancel</button>
+    </div>
+  </div>
+
+  <main class="layout">
+    <section class="panel metrics reveal">
+      <h2>Node Metrics</h2>
+      <div class="cards">
+        <article class="card"><p class="label">Uptime</p><p class="value" id="uptime">-</p></article>
+        <article class="card"><p class="label">CPU</p><p class="value" id="cpu">-</p></article>
+        <article class="card"><p class="label">Memory</p><p class="value" id="memory">-</p></article>
+        <article class="card"><p class="label">Completed</p><p class="value" id="completed">-</p></article>
+        <article class="card"><p class="label">GPU</p><p class="value" id="gpu">-</p></article>
+        <article class="card"><p class="label">GPU Load</p><p class="value" id="gpuLoad">-</p></article>
+        <article class="card"><p class="label">GPU Memory</p><p class="value" id="gpuMem">-</p></article>
+        <article class="card"><p class="label">Model In Use</p><p class="value" id="activeModel">-</p></article>
+      </div>
+      <p class="mono muted" id="nodeMeta">Loading node metadata...</p>
+      <p class="mono muted" id="modelMeta">Loading model catalog...</p>
+    </section>
+
+    <!-- Contributions (shown when logged in) -->
+    <section class="panel reveal" id="contributionsPanel" style="display:none">
+      <h2>My Contributions</h2>
+      <div class="cards">
+        <article class="card"><p class="label">Rank</p><p class="value" id="myRank">-</p></article>
+        <article class="card"><p class="label">Tasks Done</p><p class="value" id="myCompleted">-</p></article>
+        <article class="card"><p class="label">Compute Time</p><p class="value" id="myCompute">-</p></article>
+        <article class="card"><p class="label">Tokens Generated</p><p class="value" id="myTokens">-</p></article>
+      </div>
+    </section>
+
+    <section class="panel reveal">
+      <h2>Task Launcher</h2>
+      <div class="task-tabs">
+        <button class="tab active" data-tab="data">Data Processing</button>
+        <button class="tab" data-tab="llm">LLM Inference</button>
+      </div>
+
+      <form id="dataTaskForm" class="task-form">
+        <label>Operation</label>
+        <select id="operation">
+          <option value="aggregate">aggregate</option>
+          <option value="filter">filter</option>
+          <option value="transform">transform</option>
+          <option value="hash">hash</option>
+          <option value="split">split</option>
+          <option value="merge">merge</option>
+        </select>
+        <label>Input JSON</label>
+        <textarea id="dataInput" rows="5">[1,2,3,4,5]</textarea>
+        <label>Parameters JSON</label>
+        <textarea id="dataParams" rows="3">{}</textarea>
+        <button type="submit" class="btn">Submit Data Task</button>
+      </form>
+
+      <form id="llmTaskForm" class="task-form hidden">
+        <label>Prompt</label>
+        <textarea id="prompt" rows="4">Explain distributed AI in one paragraph.</textarea>
+        <label>Model (from Node)</label>
+        <select id="modelSelect"><option value="mistral:latest">mistral:latest</option></select>
+        <label>Custom Model (optional, overrides selection)</label>
+        <input id="modelCustom" type="text" placeholder="e.g. llama3.2:latest">
+        <label>Max Tokens</label>
+        <input id="maxTokens" type="number" min="1" max="4096" value="256">
+        <label><input id="requireGpu" type="checkbox"> Require GPU for this task</label>
+        <button type="submit" class="btn">Submit LLM Task</button>
+      </form>
+
+      <p class="mono" id="submitResult"></p>
+    </section>
+
+    <section class="panel reveal">
+      <h2>Latest Tasks</h2>
+      <div id="tasks" class="tasks-list"></div>
+    </section>
+
+    <section class="panel reveal">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard" class="tasks-list"></div>
+    </section>
+
+    <section class="panel reveal">
+      <h2>Peers</h2>
+      <p class="mono muted" id="peerSummary">Loading peers...</p>
+      <div id="peerList" class="tasks-list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
